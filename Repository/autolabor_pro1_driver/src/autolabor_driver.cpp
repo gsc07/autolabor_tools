@@ -83,6 +83,7 @@ private:
 
   int control_rate_, sensor_rate_;
 
+  double maximum_encoding_;
   double pulse_per_cycle_, encoder_resolution_, reduction_ratio_, pid_rate_;
   double model_param_, wheel_diameter_;
 
@@ -131,12 +132,18 @@ bool ChassisDriver::init(){
 /////////////////
 
 void ChassisDriver::send_speed_callback(const ros::TimerEvent&){
+  double left_d, right_d, radio;
   short left, right;
   double linear_speed = current_twist_.linear.x;
   double angular_speed = current_twist_.angular.z;
 
-  left = static_cast<short>((linear_speed - model_param_/2 * angular_speed) * pulse_per_cycle_);
-  right = static_cast<short>((linear_speed + model_param_/2 * angular_speed) * pulse_per_cycle_);
+  left_d = (linear_speed - model_param_/2 * angular_speed) * pulse_per_cycle_;
+  right_d = (linear_speed + model_param_/2 * angular_speed) * pulse_per_cycle_;
+
+  radio = std::max(std::max(std::abs(left_d), std::abs(right_d)) / maximum_encoding_, 1.0);
+
+  left = static_cast<short>(left_d / radio);
+  right = static_cast<short>(right_d / radio);
 
   uint8_t data[14] = {0x55, 0xAA, 0x09, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
   data[3] = msg_seq_++;
@@ -401,19 +408,21 @@ void ChassisDriver::run(){
   private_node.param<double>("model_param", model_param_, 0.78);
   private_node.param<double>("pid_rate", pid_rate_, 50.0);
 
+  private_node.param<double>("maximum_encoding", maximum_encoding_, 32.0);
+
   // 速度1m/s的情况下每个控制周期的脉冲数
   pulse_per_cycle_ = reduction_ratio_ * encoder_resolution_ / (M_PI * wheel_diameter_ * pid_rate_);
 
   if (init()){
     odom_pub_ = node.advertise<nav_msgs::Odometry>("wheel_odom", 10);
     battery_pub_ = node.advertise<std_msgs::Int32>("remaining_battery", 1);
-    current_pub_ = node.advertise<std_msgs::Float32>("current", 1);
-    voltage_pub_ = node.advertise<std_msgs::Float32>("voltage",1);
+//    current_pub_ = node.advertise<std_msgs::Float32>("current", 1);
+//    voltage_pub_ = node.advertise<std_msgs::Float32>("voltage",1);
     ros::Subscriber cmd_sub = node.subscribe<geometry_msgs::Twist>("/cmd_vel", 10, &ChassisDriver::twist_callback, this);
     ros::Timer send_speed_timer = node.createTimer(ros::Duration(1.0/control_rate_), &ChassisDriver::send_speed_callback, this);
     ros::Timer ask_battery_remainder_timer = node.createTimer(ros::Duration(1.0/sensor_rate_), &ChassisDriver::ask_battery_remainder_callback, this);
-    ros::Timer ask_current_timer = node.createTimer(ros::Duration(1.0/sensor_rate_), &ChassisDriver::ask_current_callback, this);
-    ros::Timer ask_voltage_timer = node.createTimer(ros::Duration(1.0/sensor_rate_), &ChassisDriver::ask_voltage_callback, this);
+//    ros::Timer ask_current_timer = node.createTimer(ros::Duration(1.0/sensor_rate_), &ChassisDriver::ask_current_callback, this);
+//    ros::Timer ask_voltage_timer = node.createTimer(ros::Duration(1.0/sensor_rate_), &ChassisDriver::ask_voltage_callback, this);
     boost::thread parse_thread(boost::bind(&ChassisDriver::parse_msg, this));
     ros::spin();
     return;
