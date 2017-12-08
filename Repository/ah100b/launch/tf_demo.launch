@@ -1,0 +1,9 @@
+<launch>
+    <node pkg="ah100b" type="ah100b" name="imu">
+      <param name="port" value="/dev/imu" type="string" />
+      <param name="bund" value="115200" type="int" />
+    </node>
+
+    <!--node pkg="ah100b" type="ah100b_tf" name="imu_tf" />
+    <node pkg="ah100b" type="ah100b_fix" name="imu_fix_node" /-->
+</launch>
