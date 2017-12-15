@@ -154,8 +154,9 @@ int main(int argc, char **argv)
   string port;
   ros::init(argc, argv, "ah100b");
   ros::NodeHandle nh;
-  nh.param<string>("port", port, "/dev/imu");
-  nh.param<int>("baud", baud, 115200);
+  ros::NodeHandle private_node("~");
+  private_node.param<string>("port", port, "/dev/ttyUSB0");
+  private_node.param<int>("baud", baud, 115200);
   serial::Serial serial(port, baud, serial::Timeout::simpleTimeout(5000));
   ros::Publisher publisher = nh.advertise<sensor_msgs::Imu>("imu", 1);
   ros::Rate loop_rate(100);
