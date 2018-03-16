@@ -243,7 +243,7 @@ void ChassisDriver::handle_speed_msg(uint8_t* buffer_data){
   cal_pulse(cur_left_, rev_left_, delta_left_);
   cal_pulse(cur_right_, rev_right_, delta_right_);
 
-  ROS_DEBUG_STREAM("recive -> left: " << delta_left_ << "(" << rev_left_ << ")" << "; right: " << delta_right_ << "(" << rev_right_ << ")");
+  ROS_DEBUG_STREAM("receive -> left: " << delta_left_ << "(" << rev_left_ << ")" << "; right: " << delta_right_ << "(" << rev_right_ << ")");
 
   now_ = ros::Time::now();
   if (start_flag_){
@@ -416,13 +416,13 @@ void ChassisDriver::run(){
   if (init()){
     odom_pub_ = node.advertise<nav_msgs::Odometry>("wheel_odom", 10);
     battery_pub_ = node.advertise<std_msgs::Int32>("remaining_battery", 1);
-//    current_pub_ = node.advertise<std_msgs::Float32>("current", 1);
-//    voltage_pub_ = node.advertise<std_msgs::Float32>("voltage",1);
+    current_pub_ = node.advertise<std_msgs::Float32>("current", 1);
+    voltage_pub_ = node.advertise<std_msgs::Float32>("voltage",1);
     ros::Subscriber cmd_sub = node.subscribe<geometry_msgs::Twist>("/cmd_vel", 10, &ChassisDriver::twist_callback, this);
     ros::Timer send_speed_timer = node.createTimer(ros::Duration(1.0/control_rate_), &ChassisDriver::send_speed_callback, this);
     ros::Timer ask_battery_remainder_timer = node.createTimer(ros::Duration(1.0/sensor_rate_), &ChassisDriver::ask_battery_remainder_callback, this);
-//    ros::Timer ask_current_timer = node.createTimer(ros::Duration(1.0/sensor_rate_), &ChassisDriver::ask_current_callback, this);
-//    ros::Timer ask_voltage_timer = node.createTimer(ros::Duration(1.0/sensor_rate_), &ChassisDriver::ask_voltage_callback, this);
+    ros::Timer ask_current_timer = node.createTimer(ros::Duration(1.0/sensor_rate_), &ChassisDriver::ask_current_callback, this);
+    ros::Timer ask_voltage_timer = node.createTimer(ros::Duration(1.0/sensor_rate_), &ChassisDriver::ask_voltage_callback, this);
     boost::thread parse_thread(boost::bind(&ChassisDriver::parse_msg, this));
     ros::spin();
     return;

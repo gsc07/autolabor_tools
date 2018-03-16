@@ -203,8 +203,8 @@ void SimpleDriver::distribute_msg(uint8_t msg_type, uint8_t* buffer_data){
     cal_pulse(current_right_, receive_right_, delta_right_);
 
     Encode receive;
-    receive.left = (int)(delta_left_ / radio_);
-    receive.right = (int)(delta_right_ / radio_);
+    receive.left = delta_left_;//(int)(delta_left_ / radio_);
+    receive.right = delta_right_;//(int)(delta_right_ / radio_);
     receive_pub_.publish(receive);
     break;
   }case ERROR_MSG_ID:{

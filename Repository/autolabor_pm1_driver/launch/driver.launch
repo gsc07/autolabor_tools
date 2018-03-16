@@ -1,0 +1,19 @@
+<launch>
+    <node name="autolabor_driver" pkg="autolabor_pm1_driver" type="autolabor_pm1_driver" output="screen">
+        <param name="port_name" value="/dev/ttyUSB0" />
+        <param name="odom_frame" value="odom" />
+        <param name="base_frame" value="base_link" />
+
+        <param name="baud_rate" value="115200" />
+        <param name="control_rate" value="10" />
+        <param name="sensor_rate" value="5" />
+
+        <param name="reduction_ratio" value="1.0" />
+        <param name="encoder_resolution" value="1024.0" />
+
+        <param name="wheel_diameter" value="0.21" />
+        <param name="model_param" value="0.481" />
+        <param name="pid_rate" value="50.0" />
+	<param name="maximum_encoding" value="32.0" />
+    </node>
+</launch>
