@@ -299,7 +299,7 @@ void ChassisDriver::handle_speed_msg(uint8_t* buffer_data){
     odom_.pose.pose.position.z = 0;
     odom_.pose.pose.orientation.x = q.getX();
     odom_.pose.pose.orientation.y = q.getY();
-    odom_.pose.pose.orientation.z = q.getW();
+    odom_.pose.pose.orientation.z = q.getZ();
     odom_.pose.pose.orientation.w = q.getW();
     odom_.twist.twist.linear.x = v_dis;
     odom_.twist.twist.linear.y = 0;

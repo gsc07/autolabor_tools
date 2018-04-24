@@ -24,7 +24,7 @@
         <param name="encoder_resolution" value="1600.0" />
 
         <param name="wheel_diameter" value="0.25" />
-        <param name="model_param" value="0.83" />
+        <param name="model_param" value="0.80" />
         <param name="pid_rate" value="50.0" />
 	<param name="maximum_encoding" value="32.0" />
     </node>
