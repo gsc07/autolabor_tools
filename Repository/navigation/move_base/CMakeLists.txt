@@ -22,8 +22,8 @@ find_package(catkin REQUIRED
         std_srvs
         tf
 )
-find_package(Eigen3 REQUIRED)
-add_definitions(${EIGEN3_DEFINITIONS})
+## find_package(Eigen3 REQUIRED)
+## add_definitions(${EIGEN3_DEFINITIONS})
 
 # dynamic reconfigure
 generate_dynamic_reconfigure_options(
@@ -42,7 +42,7 @@ catkin_package(
 include_directories(
     include
     ${catkin_INCLUDE_DIRS}
-    ${EIGEN3_INCLUDE_DIRS}
+    ## ${EIGEN3_INCLUDE_DIRS}
 )
 
 # move_base
@@ -50,7 +50,7 @@ add_library(move_base
   src/move_base.cpp
 )
 target_link_libraries(move_base
-    ${Boost_LIBRARIES}
+    ##${Boost_LIBRARIES}
     ${catkin_LIBRARIES}
     )
 add_dependencies(move_base ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

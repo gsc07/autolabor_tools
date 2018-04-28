@@ -22,19 +22,19 @@ find_package(catkin REQUIRED
             voxel_grid
         )
 
-find_package(PCL REQUIRED)
+## find_package(PCL REQUIRED)
 remove_definitions(-DDISABLE_LIBUSB-1.0)
-find_package(Eigen3 REQUIRED)
-find_package(Boost REQUIRED COMPONENTS system thread)
+## find_package(Eigen3 REQUIRED)
+## find_package(Boost REQUIRED COMPONENTS system thread)
 include_directories(
     include
     ${catkin_INCLUDE_DIRS}
-    ${EIGEN3_INCLUDE_DIRS}
-    ${PCL_INCLUDE_DIRS}
-    ${Boost_INCLUDE_DIRS}
+    ## ${EIGEN3_INCLUDE_DIRS}
+    ## ${PCL_INCLUDE_DIRS}
+    ## ${Boost_INCLUDE_DIRS}
 )
 
-add_definitions(${EIGEN3_DEFINITIONS})
+## add_definitions(${EIGEN3_DEFINITIONS})
 
 # messages
 add_message_files(
@@ -80,9 +80,9 @@ catkin_package(
         visualization_msgs
         voxel_grid
     DEPENDS
-        PCL
-        EIGEN3
-        Boost
+        ## PCL
+        ## EIGEN3
+        ## Boost
 )
 
 add_library(costmap_2d
@@ -99,8 +99,8 @@ add_library(costmap_2d
 )
 add_dependencies(costmap_2d ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(costmap_2d
-  ${PCL_LIBRARIES}
-  ${Boost_LIBRARIES}
+  ## ${PCL_LIBRARIES}
+  ## ${Boost_LIBRARIES}
   ${catkin_LIBRARIES}
 )
 

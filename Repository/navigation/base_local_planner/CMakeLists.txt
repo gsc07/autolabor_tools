@@ -26,16 +26,16 @@ find_package(Boost REQUIRED
         thread
         )
 
-find_package(Eigen3 REQUIRED)
-find_package(PCL REQUIRED)
+## find_package(Eigen3 REQUIRED)
+## find_package(PCL REQUIRED)
 remove_definitions(-DDISABLE_LIBUSB-1.0)
 include_directories(
     include
     ${catkin_INCLUDE_DIRS}
-    ${EIGEN3_INCLUDE_DIRS}
-    ${PCL_INCLUDE_DIRS}
+    ## ${EIGEN3_INCLUDE_DIRS}
+    ## ${PCL_INCLUDE_DIRS}
 )
-add_definitions(${EIGEN3_DEFINITIONS})
+## add_definitions(${EIGEN3_DEFINITIONS})
 
 catkin_python_setup()
 
@@ -94,7 +94,7 @@ add_library(base_local_planner
 	src/obstacle_cost_function.cpp
 	src/oscillation_cost_function.cpp
 	src/prefer_forward_cost_function.cpp
-    src/rotate_first_cost_function.cpp
+        src/rotate_first_cost_function.cpp
 	src/point_grid.cpp
 	src/costmap_model.cpp
 	src/simple_scored_sampling_planner.cpp
@@ -107,9 +107,9 @@ add_dependencies(base_local_planner base_local_planner_generate_messages_cpp)
 add_dependencies(base_local_planner nav_msgs_generate_messages_cpp)
 target_link_libraries(base_local_planner
     ${catkin_LIBRARIES}
-    ${PCL_LIBRARIES}
-    ${Boost_LIBRARIES}
-    ${Eigen_LIBRARIES}
+    ## ${PCL_LIBRARIES}
+    ## ${Boost_LIBRARIES}
+    ## ${Eigen_LIBRARIES}
     )
 
 add_library(trajectory_planner_ros

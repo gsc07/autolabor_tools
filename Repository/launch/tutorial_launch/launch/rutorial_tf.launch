@@ -1,0 +1,8 @@
+<launch>
+    <node pkg="tf" type="static_transform_publisher" name="realmap_to_map" args="1.0 1.0 0.0 1.57 0.0 0.0 /real_map /map 10" />
+    <node pkg="tf" type="static_transform_publisher" name="map_to_odom" args="2.0 -1.0 0.0 0.785 0.0 0.0 /map /odom 10" />
+    <node pkg="tf" type="static_transform_publisher" name="odom_to_baselink" args="1.0 -1.0 0.0 -1.57 0.0 0.0 /odom /base_link 10" />
+    <node pkg="tf" type="static_transform_publisher" name="baselink_to_laser" args="0.0 -2.0 0.0 3.14 0.0 0.0 /base_link /lidar 10" />
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find tutorial_launch)/rviz/amcl_simulation.rviz" />
+</launch>

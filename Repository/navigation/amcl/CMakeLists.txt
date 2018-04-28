@@ -13,7 +13,7 @@ find_package(catkin REQUIRED
             std_srvs
         )
 
-find_package(Boost REQUIRED)
+## find_package(Boost REQUIRED)
 
 # dynamic reconfigure
 generate_dynamic_reconfigure_options(
@@ -56,13 +56,12 @@ add_library(amcl_sensors
 target_link_libraries(amcl_sensors amcl_map amcl_pf)
 
 
-add_executable(amcl
-                       src/amcl_node.cpp)
+add_executable(amcl src/amcl_node.cpp)
 add_dependencies(amcl ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 target_link_libraries(amcl
     amcl_sensors amcl_map amcl_pf
-    ${Boost_LIBRARIES}
+    #${Boost_LIBRARIES}
     ${catkin_LIBRARIES}
 )
 

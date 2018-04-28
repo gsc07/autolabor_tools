@@ -22,7 +22,7 @@ double PreferForwardCostFunction::scoreTrajectory(Trajectory &traj) {
     return penalty_;
   }
   // the more we rotate, the less we progress forward
-  return fabs(traj.thetav_) * 1.0;
+  return fabs(traj.thetav_) * 10;
 }
 
 } /* namespace base_local_planner */

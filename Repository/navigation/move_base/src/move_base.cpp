@@ -50,7 +50,7 @@ namespace move_base {
     as_(NULL),
     planner_costmap_ros_(NULL), controller_costmap_ros_(NULL),
     bgp_loader_("nav_core", "nav_core::BaseGlobalPlanner"),
-    blp_loader_("nav_core", "nav_core::BaseLocalPlanner"),
+    blp_loader_("nav_core", "nav_core::BaseLocalPlanner"), 
     recovery_loader_("nav_core", "nav_core::RecoveryBehavior"),
     planner_plan_(NULL), latest_plan_(NULL), controller_plan_(NULL),
     runPlanner_(false), setup_(false), p_freq_change_(false), c_freq_change_(false), new_global_plan_(false) {
@@ -343,17 +343,22 @@ namespace move_base {
       ROS_ERROR("move_base cannot make a plan for you because it doesn't have a costmap");
       return false;
     }
-    tf::Stamped<tf::Pose> global_pose;
-    if(!planner_costmap_ros_->getRobotPose(global_pose)){
-      ROS_ERROR("move_base cannot make a plan for you because it could not get the start pose of the robot");
-      return false;
-    }
+
     geometry_msgs::PoseStamped start;
     //if the user does not specify a start pose, identified by an empty frame id, then use the robot's pose
-    if(req.start.header.frame_id == "")
-      tf::poseStampedTFToMsg(global_pose, start);
+    if(req.start.header.frame_id.empty())
+    {
+        tf::Stamped<tf::Pose> global_pose;
+        if(!planner_costmap_ros_->getRobotPose(global_pose)){
+          ROS_ERROR("move_base cannot make a plan for you because it could not get the start pose of the robot");
+          return false;
+        }
+        tf::poseStampedTFToMsg(global_pose, start);
+    }
     else
-      start = req.start;
+    {
+        start = req.start;
+    }
 
     //update the copy of the costmap the planner uses
     clearCostmapWindows(2 * clearing_radius_, 2 * clearing_radius_);
@@ -361,7 +366,7 @@ namespace move_base {
     //first try to make a plan to the exact desired goal
     std::vector<geometry_msgs::PoseStamped> global_plan;
     if(!planner_->makePlan(start, req.goal, global_plan) || global_plan.empty()){
-      ROS_DEBUG_NAMED("move_base","Failed to find a plan to exact goal of (%.2f, %.2f), searching for a feasible goal within tolerance",
+      ROS_DEBUG_NAMED("move_base","Failed to find a plan to exact goal of (%.2f, %.2f), searching for a feasible goal within tolerance", 
           req.goal.pose.position.x, req.goal.pose.position.y);
 
       //search outwards for a feasible goal within the specified tolerance
@@ -562,62 +567,55 @@ namespace move_base {
       }
       ros::Time start_time = ros::Time::now();
 
-      if(state_==PLANNING){
-        //time to plan! get a copy of the goal and unlock the mutex
-        geometry_msgs::PoseStamped temp_goal = planner_goal_;
+      //time to plan! get a copy of the goal and unlock the mutex
+      geometry_msgs::PoseStamped temp_goal = planner_goal_;
+      lock.unlock();
+      ROS_DEBUG_NAMED("move_base_plan_thread","Planning...");
+
+      //run planner
+      planner_plan_->clear();
+      bool gotPlan = n.ok() && makePlan(temp_goal, *planner_plan_);
+
+      if(gotPlan){
+        ROS_DEBUG_NAMED("move_base_plan_thread","Got Plan with %zu points!", planner_plan_->size());
+        //pointer swap the plans under mutex (the controller will pull from latest_plan_)
+        std::vector<geometry_msgs::PoseStamped>* temp_plan = planner_plan_;
+
+        lock.lock();
+        planner_plan_ = latest_plan_;
+        latest_plan_ = temp_plan;
+        last_valid_plan_ = ros::Time::now();
+        planning_retries_ = 0;
+        new_global_plan_ = true;
+
+        ROS_DEBUG_NAMED("move_base_plan_thread","Generated a plan from the base_global_planner");
+
+        //make sure we only start the controller if we still haven't reached the goal
+        if(runPlanner_)
+          state_ = CONTROLLING;
+        if(planner_frequency_ <= 0)
+          runPlanner_ = false;
         lock.unlock();
-        ROS_DEBUG_NAMED("move_base_plan_thread","Planning...");
-
-        //run planner
-        planner_plan_->clear();
-        bool gotPlan = n.ok() && makePlan(temp_goal, *planner_plan_);
-
-        if(gotPlan){
-          ROS_DEBUG_NAMED("move_base_plan_thread","Got Plan with %zu points!", planner_plan_->size());
-          //pointer swap the plans under mutex (the controller will pull from latest_plan_)
-          std::vector<geometry_msgs::PoseStamped>* temp_plan = planner_plan_;
-
-          lock.lock();
-          planner_plan_ = latest_plan_;
-          latest_plan_ = temp_plan;
-          last_valid_plan_ = ros::Time::now();
-          planning_retries_ = 0;
-          new_global_plan_ = true;
-
-          ROS_DEBUG_NAMED("move_base_plan_thread","Generated a plan from the base_global_planner");
-
-          //make sure we only start the controller if we still haven't reached the goal
-          if(runPlanner_)
-            state_ = CONTROLLING;
-          if(planner_frequency_ <= 0)
-            runPlanner_ = false;
-          lock.unlock();
-        }
-        //if we didn't get a plan and we are in the planning state (the robot isn't moving)
-        else{
-          ROS_DEBUG_NAMED("move_base_plan_thread","No Plan...");
-          ros::Time attempt_end = last_valid_plan_ + ros::Duration(planner_patience_);
-
-          //check if we've tried to make a plan for over our time limit or our maximum number of retries
-          //issue #496: we stop planning when one of the conditions is true, but if max_planning_retries_
-          //is negative (the default), it is just ignored and we have the same behavior as ever
-          lock.lock();
-          planning_retries_++;
-          if(runPlanner_ &&
-             (ros::Time::now() > attempt_end || planning_retries_ > uint32_t(max_planning_retries_))){
-            //we'll move into our obstacle clearing mode
-            state_ = CLEARING;
-            wait_for_wake = true;
-            publishZeroVelocity();
-            recovery_trigger_ = PLANNING_R;
-          }
-
-          lock.unlock();
-        }
       }
-      else
-      {
-        //not planning, so just unlock the mutex
+      //if we didn't get a plan and we are in the planning state (the robot isn't moving)
+      else if(state_==PLANNING){
+        ROS_DEBUG_NAMED("move_base_plan_thread","No Plan...");
+        ros::Time attempt_end = last_valid_plan_ + ros::Duration(planner_patience_);
+
+        //check if we've tried to make a plan for over our time limit or our maximum number of retries
+        //issue #496: we stop planning when one of the conditions is true, but if max_planning_retries_
+        //is negative (the default), it is just ignored and we have the same behavior as ever
+        lock.lock();
+        planning_retries_++;
+        if(runPlanner_ &&
+           (ros::Time::now() > attempt_end || planning_retries_ > uint32_t(max_planning_retries_))){
+          //we'll move into our obstacle clearing mode
+          state_ = CLEARING;
+          runPlanner_ = false;  // proper solution for issue #523
+          publishZeroVelocity();
+          recovery_trigger_ = PLANNING_R;
+        }
+
         lock.unlock();
       }
 
@@ -808,7 +806,7 @@ namespace move_base {
       last_oscillation_reset_ = ros::Time::now();
       oscillation_pose_ = current_position;
 
-      //if our last recovery was caused by oscillation, we want to reset the recovery index
+      //if our last recovery was caused by oscillation, we want to reset the recovery index 
       if(recovery_trigger_ == OSCILLATION_R)
         recovery_index_ = 0;
     }
@@ -893,10 +891,10 @@ namespace move_base {
           state_ = CLEARING;
           recovery_trigger_ = OSCILLATION_R;
         }
-
+        
         {
          boost::unique_lock<costmap_2d::Costmap2D::mutex_t> lock(*(controller_costmap_ros_->getCostmap()->getMutex()));
-
+        
         if(tc_->computeVelocityCommands(cmd_vel)){
           ROS_DEBUG_NAMED( "move_base", "Got a valid command from the local planner: %.3lf, %.3lf, %.3lf",
                            cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z );
@@ -1009,7 +1007,7 @@ namespace move_base {
                     std::string name_i = behavior_list[i]["name"];
                     std::string name_j = behavior_list[j]["name"];
                     if(name_i == name_j){
-                      ROS_ERROR("A recovery behavior with the name %s already exists, this is not allowed. Using the default recovery behaviors instead.",
+                      ROS_ERROR("A recovery behavior with the name %s already exists, this is not allowed. Using the default recovery behaviors instead.", 
                           name_i.c_str());
                       return false;
                     }
@@ -1065,7 +1063,7 @@ namespace move_base {
         }
       }
       else{
-        ROS_ERROR("The recovery behavior specification must be a list, but is of XmlRpcType %d. We'll use the default recovery behaviors instead.",
+        ROS_ERROR("The recovery behavior specification must be a list, but is of XmlRpcType %d. We'll use the default recovery behaviors instead.", 
             behavior_list.getType());
         return false;
       }
