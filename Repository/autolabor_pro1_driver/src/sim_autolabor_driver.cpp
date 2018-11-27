@@ -56,6 +56,7 @@ private:
   int control_rate_, pid_rate_;
   double radio_;
   int send_left_, send_right_, receive_left_, receive_right_, delta_left_, delta_right_, current_left_, current_right_;
+  double left_total_, right_total_;
 
   dynamic_reconfigure::Server<SimAutolaborDriverConfig> server_;
   dynamic_reconfigure::Server<SimAutolaborDriverConfig>::CallbackType f_;
@@ -64,7 +65,7 @@ private:
   ros::Timer send_timer_;
 };
 
-SimpleDriver::SimpleDriver(){
+SimpleDriver::SimpleDriver():left_total_(0.0), right_total_(0.0){
   ros::NodeHandle private_node("~");
   private_node.param<std::string>("port_name", port_name_, std::string("/dev/ttyUSB0"));
   private_node.param<int>("baud_rate", baud_rate_, 9600);
@@ -201,6 +202,10 @@ void SimpleDriver::distribute_msg(uint8_t msg_type, uint8_t* buffer_data){
 
     cal_pulse(current_left_, receive_left_, delta_left_);
     cal_pulse(current_right_, receive_right_, delta_right_);
+
+    left_total_ += delta_left_;
+    right_total_ += delta_right_;
+    std::cout << "left: " << left_total_ << ", right: " << right_total_ << std::endl;
 
     Encode receive;
     receive.left = delta_left_;//(int)(delta_left_ / radio_);

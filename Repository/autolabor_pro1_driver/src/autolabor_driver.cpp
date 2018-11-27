@@ -63,6 +63,7 @@ private:
 
   boost::mutex twist_mutex_;
   geometry_msgs::Twist current_twist_;
+  ros::Time last_twist_time_;
   nav_msgs::Odometry odom_;
 
   boost::system::error_code ec_;
@@ -85,7 +86,8 @@ private:
 
   double maximum_encoding_;
   double pulse_per_cycle_, encoder_resolution_, reduction_ratio_, pid_rate_;
-  double model_param_, wheel_diameter_;
+  double model_param_cw_, model_param_acw_, wheel_diameter_;
+//  double total_dis_;
 
   bool start_flag_;
   double delta_time_;
@@ -133,12 +135,26 @@ bool ChassisDriver::init(){
 
 void ChassisDriver::send_speed_callback(const ros::TimerEvent&){
   double left_d, right_d, radio;
+  double model_param;
   short left, right;
-  double linear_speed = current_twist_.linear.x;
-  double angular_speed = current_twist_.angular.z;
 
-  left_d = (linear_speed - model_param_/2 * angular_speed) * pulse_per_cycle_;
-  right_d = (linear_speed + model_param_/2 * angular_speed) * pulse_per_cycle_;
+  double linear_speed, angular_speed;
+  if ((ros::Time::now() - last_twist_time_).toSec()<=1.0){
+    linear_speed = current_twist_.linear.x;
+    angular_speed = current_twist_.angular.z;
+  }else{
+    linear_speed = 0;
+    angular_speed = 0;
+  }
+
+  if (angular_speed <= 0){
+    model_param = model_param_cw_;
+  }else{
+    model_param = model_param_acw_;
+  }
+
+  left_d = (linear_speed - model_param/2 * angular_speed) * pulse_per_cycle_;
+  right_d = (linear_speed + model_param/2 * angular_speed) * pulse_per_cycle_;
 
   radio = std::max(std::max(std::abs(left_d), std::abs(right_d)) / maximum_encoding_, 1.0);
 
@@ -179,6 +195,7 @@ void ChassisDriver::ask_voltage_callback(const ros::TimerEvent&){
 
 void ChassisDriver::twist_callback(const geometry_msgs::Twist::ConstPtr& msg){
   twist_mutex_.lock();
+  last_twist_time_ = ros::Time::now();
   current_twist_ = *msg.get();
   twist_mutex_.unlock();
 }
@@ -248,19 +265,37 @@ void ChassisDriver::handle_speed_msg(uint8_t* buffer_data){
   now_ = ros::Time::now();
   if (start_flag_){
     accumulation_x_ = accumulation_y_ = accumulation_th_ = 0.0;
+//    total_dis_ = 0.0;
     last_time_ = now_;
     start_flag_ = false;
     return;
   }
   delta_time_ = (now_ - last_time_).toSec();
   if (delta_time_ >= (0.5 / control_rate_)){
-    double delta_theta = (delta_right_ - delta_left_)/ (pulse_per_cycle_ * pid_rate_ * model_param_);
+    double model_param;
+    if (delta_right_ <= delta_left_){
+      model_param = model_param_cw_;
+    }else{
+      model_param = model_param_acw_;
+    }
+    double delta_theta = (delta_right_ - delta_left_)/ (pulse_per_cycle_ * pid_rate_ * model_param);
     double v_theta = delta_theta / delta_time_;
 
     double delta_dis = (delta_right_ + delta_left_) / (pulse_per_cycle_ * pid_rate_ * 2.0);
     double v_dis = delta_dis / delta_time_;
-    double delta_x = cos(delta_theta) * delta_dis;
-    double delta_y = -sin(delta_theta) * delta_dis;
+    //double delta_x = cos(delta_theta) * delta_dis;
+    //double delta_y = -sin(delta_theta) * delta_dis;
+    double delta_x, delta_y;
+    if (delta_theta == 0){
+      delta_x = delta_dis;
+      delta_y = 0.0;
+    }else{
+      delta_x = delta_dis * (sin(delta_theta) / delta_theta);
+      delta_y = delta_dis * ( (1 - cos(delta_theta)) / delta_theta );
+    }
+
+//    total_dis_ += std::abs(delta_dis);
+//    std::cout << "total_dis: " << total_dis_ << std::endl;
 
     accumulation_x_ += (cos(accumulation_th_) * delta_x - sin(accumulation_th_) * delta_y);
     accumulation_y_ += (sin(accumulation_th_) * delta_x + cos(accumulation_th_) * delta_y);
@@ -405,7 +440,8 @@ void ChassisDriver::run(){
   private_node.param<double>("reduction_ratio", reduction_ratio_, 2.5);
   private_node.param<double>("encoder_resolution", encoder_resolution_, 1600.0);
   private_node.param<double>("wheel_diameter", wheel_diameter_, 0.15);
-  private_node.param<double>("model_param", model_param_, 0.78);
+  private_node.param<double>("model_param_cw", model_param_cw_, 0.78);
+  private_node.param<double>("model_param_acw", model_param_acw_, 0.78);
   private_node.param<double>("pid_rate", pid_rate_, 50.0);
 
   private_node.param<double>("maximum_encoding", maximum_encoding_, 32.0);
@@ -435,5 +471,3 @@ int main(int argc, char **argv){
   driver.run();
   return 0;
 }
-
-
